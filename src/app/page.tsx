@@ -4,6 +4,7 @@ import PythPriceCard from "@/components/pyth-price-card";
 import StrategyConfig from "@/components/strategy-config";
 import StartStop from "@/components/start-stop";
 import { PYTH_FEEDS } from "@/lib/pyth";
+import SignalTester from "@/components/signal-tester";
 
 export default function Home() {
   return (
@@ -31,6 +32,7 @@ export default function Home() {
         </section>
 
         <StrategyConfig />
+        <SignalTester />
 
         <StartStop />
       </main>
