@@ -5,6 +5,8 @@ import StrategyConfig from "@/components/strategy-config";
 import StartStop from "@/components/start-stop";
 import { PYTH_FEEDS } from "@/lib/pyth";
 import SignalTester from "@/components/signal-tester";
+import SessionStatus from "@/components/session-status";
+import ExecuteNativeSend from "@/components/execute-native-send";
 
 export default function Home() {
   return (
@@ -30,6 +32,9 @@ export default function Home() {
           <PythPriceCard id={PYTH_FEEDS.BTC_USD} label="BTC / USD" />
           <PythPriceCard id={PYTH_FEEDS.USDC_USD} label="USDC / USD" />
         </section>
+
+        <SessionStatus />
+        <ExecuteNativeSend />
 
         <StrategyConfig />
         <SignalTester />

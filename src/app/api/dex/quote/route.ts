@@ -14,8 +14,8 @@ export async function POST(req: NextRequest) {
     const tokenInIn = body?.tokenIn as string | undefined;
     const tokenOutIn = body?.tokenOut as string | undefined;
     const amountIn = body?.amountIn as string | number | undefined; // decimal string or number
-    const decimalsIn = Number(body?.decimalsIn ?? 6);
-    const decimalsOut = Number(body?.decimalsOut ?? 18);
+    const decimalsInBody = body?.decimalsIn as number | undefined;
+    const decimalsOutBody = body?.decimalsOut as number | undefined;
 
     if (!routerIn || !tokenInIn || !tokenOutIn || !Number.isFinite(Number(amountIn))) {
       return NextResponse.json({ error: "router, tokenIn, tokenOut, amountIn required" }, { status: 400 });
@@ -51,6 +51,33 @@ export async function POST(req: NextRequest) {
       resolveToEvm(tokenOutIn),
     ]);
 
+    // Determine decimals for tokens
+    const erc20Abi = parseAbi(["function decimals() view returns (uint8)"]);
+    const fetchTokenDecimals = async (
+      originalId: string,
+      evmAddr: Address,
+      provided?: number
+    ): Promise<number> => {
+      if (Number.isFinite(provided as number)) return provided as number;
+      // If original id is Hedera 0.0.x, try Mirror Node tokens endpoint
+      if (/^\d+\.\d+\.\d+$/.test(originalId)) {
+        const res = await fetch(`https://testnet.mirrornode.hedera.com/api/v1/tokens/${originalId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const dec = data?.decimals;
+          if (Number.isFinite(dec)) return Number(dec);
+        }
+      }
+      // Fallback: call ERC20 decimals on EVM address
+      const dec = await client.readContract({ address: evmAddr, abi: erc20Abi, functionName: "decimals" });
+      return Number(dec);
+    };
+
+    const [decimalsIn, decimalsOut] = await Promise.all([
+      fetchTokenDecimals(tokenInIn, tokenIn, decimalsInBody),
+      fetchTokenDecimals(tokenOutIn, tokenOut, decimalsOutBody),
+    ]);
+
     const amtInWei = BigInt(Math.floor(Number(amountIn) * 10 ** decimalsIn));
 
     const amounts = await client.readContract({
@@ -70,6 +97,8 @@ export async function POST(req: NextRequest) {
       router,
       tokenIn,
       tokenOut,
+      decimalsIn,
+      decimalsOut,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Unknown error" }, { status: 500 });
