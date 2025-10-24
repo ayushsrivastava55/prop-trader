@@ -1,18 +1,9 @@
 import { createConfig, http } from "wagmi";
-import { injected, walletConnect } from "wagmi/connectors";
+import { injected } from "wagmi/connectors/injected";
 import { hederaTestnet } from "@/lib/chains";
 
-const wcProjectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID;
-
+// Only use injected connector (MetaMask, browser wallets) to avoid dependency issues
 const connectors = [injected()];
-if (wcProjectId) {
-  connectors.push(
-    walletConnect({
-      projectId: wcProjectId,
-      showQrModal: true,
-    })
-  );
-}
 
 export const config = createConfig({
   chains: [hederaTestnet],

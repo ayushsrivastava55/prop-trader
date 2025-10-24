@@ -7,6 +7,8 @@ import { PYTH_FEEDS } from "@/lib/pyth";
 import SignalTester from "@/components/signal-tester";
 import SessionStatus from "@/components/session-status";
 import ExecuteNativeSend from "@/components/execute-native-send";
+import ExecuteSwapPrep from "@/components/execute-swap-prep";
+import AutoExecutor from "@/components/auto-executor";
 
 export default function Home() {
   return (
@@ -35,11 +37,13 @@ export default function Home() {
 
         <SessionStatus />
         <ExecuteNativeSend />
+        <ExecuteSwapPrep />
 
         <StrategyConfig />
         <SignalTester />
 
         <StartStop />
+        <AutoExecutor />
       </main>
     </div>
   );
