@@ -17,6 +17,8 @@ export default function AutoExecutor() {
   const [recipient, setRecipient] = useState("");
   const [maxAgeSec, setMaxAgeSec] = useState("60");
   const [boundsBps, setBoundsBps] = useState("50");
+  const [vincent, setVincent] = useState(false);
+  const [pkp, setPkp] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [last, setLast] = useState<any>(null);
@@ -52,6 +54,8 @@ export default function AutoExecutor() {
           slippageBps,
           boundsBps: Number(boundsBps),
           maxAgeSec: Number(maxAgeSec),
+          vincent,
+          pkp,
         }),
       });
       const json = await res.json();
@@ -77,12 +81,12 @@ export default function AutoExecutor() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, router, tokenIn, tokenOut, priceId, recipient, amountIn, decimalsIn, decimalsOut, thresholdBps, slippageBps, boundsBps, maxAgeSec]);
+  }, [isActive, router, tokenIn, tokenOut, priceId, recipient, amountIn, decimalsIn, decimalsOut, thresholdBps, slippageBps, boundsBps, maxAgeSec, vincent, pkp]);
 
   return (
     <div className="rounded-lg border p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-medium">Auto Execute (Server signer)</h3>
+        <h3 className="font-medium">Auto Execute</h3>
         <span className="text-xs text-muted-foreground">Runs when Start is Active</span>
       </div>
 
@@ -127,6 +131,16 @@ export default function AutoExecutor() {
           <div className="mb-1 text-muted-foreground">Bounds (bps)</div>
           <input className="w-full rounded-md border px-2 py-1" value={boundsBps} onChange={(e) => setBoundsBps(e.target.value)} />
         </label>
+        <label className="flex items-center gap-2 text-sm" title="Use Vincent PKP for execution">
+          <input type="checkbox" checked={vincent} onChange={(e) => setVincent(e.target.checked)} />
+          <span>Use Vincent (PKP)</span>
+        </label>
+        {vincent && (
+          <label className="block text-sm" title="Delegator PKP EOA">
+            <div className="mb-1 text-muted-foreground">Delegator PKP EOA</div>
+            <input className="w-full rounded-md border px-2 py-1" value={pkp} onChange={(e) => setPkp(e.target.value)} placeholder="0x..." />
+          </label>
+        )}
         <div className="flex items-end gap-2">
           <button onClick={runTick} disabled={loading} className="px-3 py-2 rounded-md border text-sm hover:bg-accent w-full">{loading ? "Running…" : "Run Once"}</button>
         </div>
@@ -143,7 +157,7 @@ export default function AutoExecutor() {
           {last.note && <div className="text-muted-foreground">{last.note}</div>}
         </div>
       )}
-      <div className="text-xs text-muted-foreground">Uses server signer. For non-custodial execution, we will switch to Vincent (PKP).</div>
+      <div className="text-xs text-muted-foreground">Server or Vincent (PKP) based on toggle.</div>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import SessionStatus from "@/components/session-status";
 import ExecuteNativeSend from "@/components/execute-native-send";
 import ExecuteSwapPrep from "@/components/execute-swap-prep";
 import AutoExecutor from "@/components/auto-executor";
+import StrategyStatus from "@/components/strategy-status";
 
 export default function Home() {
   return (
@@ -36,6 +37,7 @@ export default function Home() {
         </section>
 
         <SessionStatus />
+        <StrategyStatus />
         <ExecuteNativeSend />
         <ExecuteSwapPrep />
 

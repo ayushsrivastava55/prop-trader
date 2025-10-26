@@ -47,7 +47,7 @@ export default function ExecuteSwapPrep() {
         maxAgeSec: Number(maxAgeSec),
         slippageBps: Number(slippageBps),
         boundsBps: Number(boundsBps),
-        owner: address,
+        owner: pkp || address,
       };
       if (decimalsIn) body.decimalsIn = Number(decimalsIn);
       if (decimalsOut) body.decimalsOut = Number(decimalsOut);
@@ -291,7 +291,7 @@ export default function ExecuteSwapPrep() {
             <button onClick={onExecuteWallet} disabled={!recipient} className="px-3 py-2 rounded-md border text-sm hover:bg-accent">
               Execute via Wallet
             </button>
-            <button onClick={onExecuteVincent} disabled={execLoading || !recipient || !pkp} className="px-3 py-2 rounded-md border text-sm hover:bg-accent">
+            <button onClick={onExecuteVincent} disabled={execLoading || !recipient || !pkp || data?.needsApproval === true} className="px-3 py-2 rounded-md border text-sm hover:bg-accent">
               {execLoading ? "Executing…" : "Execute via Vincent (PKP)"}
             </button>
             <button onClick={onExecute} disabled={execLoading || !recipient} className="px-3 py-2 rounded-md border text-sm hover:bg-accent">
@@ -300,7 +300,14 @@ export default function ExecuteSwapPrep() {
           </div>
           {execError && <p className="text-sm text-destructive">{execError}</p>}
           {execResult && (
-            <pre className="text-xs whitespace-pre-wrap break-all bg-muted p-2 rounded">{JSON.stringify(execResult, null, 2)}</pre>
+            <div className="space-y-2">
+              {execResult.txHash && (
+                <a href={`https://hashscan.io/testnet/tx/${execResult.txHash}`} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                  View on Hashscan: {execResult.txHash}
+                </a>
+              )}
+              <pre className="text-xs whitespace-pre-wrap break-all bg-muted p-2 rounded">{JSON.stringify(execResult, null, 2)}</pre>
+            </div>
           )}
         </div>
       )}

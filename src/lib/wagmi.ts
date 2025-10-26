@@ -1,5 +1,5 @@
 import { createConfig, http } from "wagmi";
-import { injected } from "wagmi/connectors/injected";
+import { injected } from "wagmi/connectors";
 import { hederaTestnet } from "@/lib/chains";
 
 // Only use injected connector (MetaMask, browser wallets) to avoid dependency issues
