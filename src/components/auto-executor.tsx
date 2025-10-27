@@ -2,18 +2,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useStrategyStore } from "@/store/strategy";
 import { useAccount } from "wagmi";
+import TokenSelect from "@/components/token-select";
+import { Token, SAUCERSWAP_ROUTER_TESTNET, getTokenBySymbol } from "@/lib/tokens";
+import { PYTH_FEEDS } from "@/lib/pyth";
+import { useTradesStore } from "@/store/trades";
 
 export default function AutoExecutor() {
   const { isActive, arbitrage } = useStrategyStore();
   const { address } = useAccount();
+  const { addTrade } = useTradesStore();
 
-  const [router, setRouter] = useState("");
-  const [tokenIn, setTokenIn] = useState("");
-  const [tokenOut, setTokenOut] = useState("");
-  const [amountIn, setAmountIn] = useState("100");
-  const [decimalsIn, setDecimalsIn] = useState("6");
-  const [decimalsOut, setDecimalsOut] = useState("18");
-  const [priceId, setPriceId] = useState("");
+  const [router, setRouter] = useState(SAUCERSWAP_ROUTER_TESTNET);
+  const [tokenInId, setTokenInId] = useState(getTokenBySymbol("USDC")?.id || "");
+  const [tokenOutId, setTokenOutId] = useState(getTokenBySymbol("WHBAR")?.id || "");
+  const [amountIn, setAmountIn] = useState("10");
+  const [priceId, setPriceId] = useState(PYTH_FEEDS.USDC_USD);
   const [recipient, setRecipient] = useState("");
   const [maxAgeSec, setMaxAgeSec] = useState("60");
   const [boundsBps, setBoundsBps] = useState("50");
@@ -34,7 +37,7 @@ export default function AutoExecutor() {
   const thresholdBps = useMemo(() => arbitrage.spreadBps, [arbitrage.spreadBps]);
 
   async function runTick() {
-    if (!router || !tokenIn || !tokenOut || !priceId || !recipient) return;
+    if (!router || !tokenInId || !tokenOutId || !priceId || !recipient) return;
     setLoading(true);
     setError(null);
     try {
@@ -43,11 +46,9 @@ export default function AutoExecutor() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           router,
-          tokenIn,
-          tokenOut,
-          amountIn: Number(amountIn),
-          decimalsIn: Number(decimalsIn),
-          decimalsOut: Number(decimalsOut),
+          tokenIn: tokenInId,
+          tokenOut: tokenOutId,
+          amountIn,
           priceId,
           recipient,
           thresholdBps,
@@ -61,6 +62,17 @@ export default function AutoExecutor() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Tick failed");
       setLast({ ...json, at: new Date().toISOString() });
+      if (json.txHash) {
+        addTrade({
+          txHash: json.txHash,
+          path: vincent ? "vincent" : "server",
+          amountInWei: json.amountInWei,
+          tokenIn: tokenInId,
+          tokenOut: tokenOutId,
+          recipient,
+          at: Date.now(),
+        });
+      }
     } catch (e: any) {
       setError(e?.message || "Unknown error");
     } finally {
@@ -81,7 +93,7 @@ export default function AutoExecutor() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, router, tokenIn, tokenOut, priceId, recipient, amountIn, decimalsIn, decimalsOut, thresholdBps, slippageBps, boundsBps, maxAgeSec, vincent, pkp]);
+  }, [isActive, router, tokenInId, tokenOutId, priceId, recipient, amountIn, thresholdBps, slippageBps, boundsBps, maxAgeSec, vincent, pkp]);
 
   return (
     <div className="rounded-lg border p-4 space-y-3">
@@ -91,33 +103,21 @@ export default function AutoExecutor() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <label className="block text-sm" title="SaucerSwap Router">
-          <div className="mb-1 text-muted-foreground">Router</div>
-          <input className="w-full rounded-md border px-2 py-1" value={router} onChange={(e) => setRouter(e.target.value)} placeholder="0.0.19264" />
-        </label>
-        <label className="block text-sm" title="Token In">
-          <div className="mb-1 text-muted-foreground">Token In</div>
-          <input className="w-full rounded-md border px-2 py-1" value={tokenIn} onChange={(e) => setTokenIn(e.target.value)} />
-        </label>
-        <label className="block text-sm" title="Token Out">
-          <div className="mb-1 text-muted-foreground">Token Out</div>
-          <input className="w-full rounded-md border px-2 py-1" value={tokenOut} onChange={(e) => setTokenOut(e.target.value)} />
-        </label>
+        <TokenSelect
+          value={tokenInId}
+          onChange={(token) => setTokenInId(token.id)}
+          label="Token In"
+          placeholder="Select token to sell"
+        />
+        <TokenSelect
+          value={tokenOutId}
+          onChange={(token) => setTokenOutId(token.id)}
+          label="Token Out"
+          placeholder="Select token to buy"
+        />
         <label className="block text-sm" title="Amount In">
           <div className="mb-1 text-muted-foreground">Amount In</div>
           <input className="w-full rounded-md border px-2 py-1" value={amountIn} onChange={(e) => setAmountIn(e.target.value)} />
-        </label>
-        <label className="block text-sm" title="Decimals In">
-          <div className="mb-1 text-muted-foreground">Decimals In</div>
-          <input className="w-full rounded-md border px-2 py-1" value={decimalsIn} onChange={(e) => setDecimalsIn(e.target.value)} />
-        </label>
-        <label className="block text-sm" title="Decimals Out">
-          <div className="mb-1 text-muted-foreground">Decimals Out</div>
-          <input className="w-full rounded-md border px-2 py-1" value={decimalsOut} onChange={(e) => setDecimalsOut(e.target.value)} />
-        </label>
-        <label className="block text-sm" title="Pyth Feed ID (bytes32)">
-          <div className="mb-1 text-muted-foreground">Price Feed ID</div>
-          <input className="w-full rounded-md border px-2 py-1" value={priceId} onChange={(e) => setPriceId(e.target.value)} placeholder="0x..." />
         </label>
         <label className="block text-sm" title="Recipient">
           <div className="mb-1 text-muted-foreground">Recipient</div>
@@ -142,7 +142,7 @@ export default function AutoExecutor() {
           </label>
         )}
         <div className="flex items-end gap-2">
-          <button onClick={runTick} disabled={loading} className="px-3 py-2 rounded-md border text-sm hover:bg-accent w-full">{loading ? "Running…" : "Run Once"}</button>
+          <button onClick={runTick} disabled={loading} className="px-3 py-2 rounded-md text-sm w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 transition-all">{loading ? "Running…" : "Run Once"}</button>
         </div>
       </div>
 

@@ -2,16 +2,19 @@
 import { useEffect, useState } from "react";
 import { useAccount } from "wagmi";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import TokenSelect from "@/components/token-select";
+import { Token, SAUCERSWAP_ROUTER_TESTNET, getTokenBySymbol } from "@/lib/tokens";
+import { PYTH_FEEDS } from "@/lib/pyth";
+import { useTradesStore } from "@/store/trades";
 
 export default function ExecuteSwapPrep() {
   const { address } = useAccount();
-  const [router, setRouter] = useState("");
-  const [tokenIn, setTokenIn] = useState("");
-  const [tokenOut, setTokenOut] = useState("");
-  const [amountIn, setAmountIn] = useState("100");
-  const [decimalsIn, setDecimalsIn] = useState<string>("");
-  const [decimalsOut, setDecimalsOut] = useState<string>("");
-  const [priceId, setPriceId] = useState("");
+  const { addTrade } = useTradesStore();
+  const [router, setRouter] = useState(SAUCERSWAP_ROUTER_TESTNET);
+  const [tokenInId, setTokenInId] = useState(getTokenBySymbol("USDC")?.id || "");
+  const [tokenOutId, setTokenOutId] = useState(getTokenBySymbol("WHBAR")?.id || "");
+  const [amountIn, setAmountIn] = useState("10");
+  const [priceId, setPriceId] = useState(PYTH_FEEDS.USDC_USD);
   const [maxAgeSec, setMaxAgeSec] = useState("60");
   const [slippageBps, setSlippageBps] = useState("50");
   const [boundsBps, setBoundsBps] = useState("50");
@@ -40,8 +43,8 @@ export default function ExecuteSwapPrep() {
     try {
       const body: any = {
         router,
-        tokenIn,
-        tokenOut,
+        tokenIn: tokenInId,
+        tokenOut: tokenOutId,
         amountIn,
         priceId,
         maxAgeSec: Number(maxAgeSec),
@@ -49,8 +52,6 @@ export default function ExecuteSwapPrep() {
         boundsBps: Number(boundsBps),
         owner: pkp || address,
       };
-      if (decimalsIn) body.decimalsIn = Number(decimalsIn);
-      if (decimalsOut) body.decimalsOut = Number(decimalsOut);
 
       const res = await fetch("/api/strategy/prepare", {
         method: "POST",
@@ -96,6 +97,17 @@ export default function ExecuteSwapPrep() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "Vincent execute failed");
       setExecResult(json);
+      if (json.txHash) {
+        addTrade({
+          txHash: json.txHash,
+          path: "vincent",
+          amountInWei: String(data.amountInWei),
+          tokenIn: tokenInId,
+          tokenOut: tokenOutId,
+          recipient,
+          at: Date.now(),
+        });
+      }
     } catch (e: any) {
       setExecError(e?.message || "Vincent execute failed");
     } finally {
@@ -199,35 +211,21 @@ export default function ExecuteSwapPrep() {
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <label className="block text-sm" title="SaucerSwap router (Hedera 0.0.x or 0x EVM)">
-          <div className="mb-1 text-muted-foreground">Router</div>
-          <input className="w-full rounded-md border px-2 py-1" value={router} onChange={(e) => setRouter(e.target.value)} placeholder="0.0.19264" />
-        </label>
-        <label className="block text-sm" title="Token In (Hedera 0.0.x or 0x EVM)">
-          <div className="mb-1 text-muted-foreground">Token In</div>
-          <input className="w-full rounded-md border px-2 py-1" value={tokenIn} onChange={(e) => setTokenIn(e.target.value)} />
-        </label>
-        <label className="block text-sm" title="Token Out (Hedera 0.0.x or 0x EVM)">
-          <div className="mb-1 text-muted-foreground">Token Out</div>
-          <input className="w-full rounded-md border px-2 py-1" value={tokenOut} onChange={(e) => setTokenOut(e.target.value)} />
-        </label>
-
-        <label className="block text-sm" title="Input amount in human units (e.g., 100)">
+        <TokenSelect
+          value={tokenInId}
+          onChange={(token) => setTokenInId(token.id)}
+          label="Token In"
+          placeholder="Select token to sell"
+        />
+        <TokenSelect
+          value={tokenOutId}
+          onChange={(token) => setTokenOutId(token.id)}
+          label="Token Out"
+          placeholder="Select token to buy"
+        />
+        <label className="block text-sm" title="Input amount in human units (e.g., 10)">
           <div className="mb-1 text-muted-foreground">Amount In</div>
           <input className="w-full rounded-md border px-2 py-1" value={amountIn} onChange={(e) => setAmountIn(e.target.value)} />
-        </label>
-        <label className="block text-sm" title="Optional override; auto-detected otherwise">
-          <div className="mb-1 text-muted-foreground">Decimals In (opt)</div>
-          <input className="w-full rounded-md border px-2 py-1" value={decimalsIn} onChange={(e) => setDecimalsIn(e.target.value)} />
-        </label>
-        <label className="block text-sm" title="Optional override; auto-detected otherwise">
-          <div className="mb-1 text-muted-foreground">Decimals Out (opt)</div>
-          <input className="w-full rounded-md border px-2 py-1" value={decimalsOut} onChange={(e) => setDecimalsOut(e.target.value)} />
-        </label>
-
-        <label className="block text-sm" title="Pyth price feed id (bytes32 hex)">
-          <div className="mb-1 text-muted-foreground">Price Feed ID</div>
-          <input className="w-full rounded-md border px-2 py-1" value={priceId} onChange={(e) => setPriceId(e.target.value)} placeholder="0x..." />
         </label>
         <label className="block text-sm" title="Max allowed price age in seconds">
           <div className="mb-1 text-muted-foreground">Max Age (sec)</div>
@@ -250,7 +248,7 @@ export default function ExecuteSwapPrep() {
           <input className="w-full rounded-md border px-2 py-1" value={pkp} onChange={(e) => setPkp(e.target.value)} placeholder="0x..." />
         </label>
         <div className="flex items-end">
-          <button onClick={onPrepare} disabled={loading || !router || !tokenIn || !tokenOut || !priceId || !amountIn} className="px-3 py-2 rounded-md border text-sm hover:bg-accent w-full">
+          <button onClick={onPrepare} disabled={loading || !router || !tokenInId || !tokenOutId || !priceId || !amountIn} className="px-3 py-2 rounded-md border text-sm hover:bg-accent w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white border-none">
             {loading ? "Preparing…" : "Prepare"}
           </button>
         </div>

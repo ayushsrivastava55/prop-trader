@@ -21,20 +21,32 @@ const PYTH_EVM = process.env.NEXT_PUBLIC_PYTH_EVM_ADDRESS || process.env.PYTH_EV
 async function resolveToEvm(addr: string): Promise<Address> {
   if (addr.startsWith("0x") && addr.length === 42) return addr as Address;
   // Try as contract first
-  let res = await fetch(`https://testnet.mirrornode.hedera.com/api/v1/contracts/${addr}`);
-  if (res.ok) {
-    const data = await res.json();
-    const evm = data?.evm_address as string | undefined;
-    if (evm?.startsWith("0x")) return evm as Address;
+  try {
+    let res = await fetch(`https://testnet.mirrornode.hedera.com/api/v1/contracts/${addr}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const evm = data?.evm_address as string | undefined;
+      if (evm?.startsWith("0x")) return evm as Address;
+    }
+  } catch (e) {
+    // Try token next
   }
-  // Try as token next
-  res = await fetch(`https://testnet.mirrornode.hedera.com/api/v1/tokens/${addr}`);
-  if (res.ok) {
-    const data = await res.json();
-    const evm = data?.evm_address as string | undefined;
-    if (evm?.startsWith("0x")) return evm as Address;
+  // Try as token
+  try {
+    const res = await fetch(`https://testnet.mirrornode.hedera.com/api/v1/tokens/${addr}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const evm = data?.evm_address as string | undefined;
+      if (evm?.startsWith("0x")) return evm as Address;
+    }
+  } catch (e) {
+    // Fall through
   }
-  throw new Error(`Mirror resolve failed for ${addr}`);
+  throw new Error(`Mirror resolve failed for ${addr}. Use EVM address (0x...) instead.`);
 }
 
 async function fetchTokenDecimals(
@@ -45,11 +57,17 @@ async function fetchTokenDecimals(
 ): Promise<number> {
   if (Number.isFinite(provided as number)) return provided as number;
   if (/^\d+\.\d+\.\d+$/.test(originalId)) {
-    const res = await fetch(`https://testnet.mirrornode.hedera.com/api/v1/tokens/${originalId}`);
-    if (res.ok) {
-      const data = await res.json();
-      const dec = data?.decimals;
-      if (Number.isFinite(dec)) return Number(dec);
+    try {
+      const res = await fetch(`https://testnet.mirrornode.hedera.com/api/v1/tokens/${originalId}`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const dec = data?.decimals;
+        if (Number.isFinite(dec)) return Number(dec);
+      }
+    } catch (e) {
+      // Fall through to on-chain call
     }
   }
   const dec = await client.readContract({ address: evmAddr, abi: erc20Abi, functionName: "decimals" });
